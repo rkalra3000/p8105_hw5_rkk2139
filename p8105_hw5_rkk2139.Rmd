@@ -57,7 +57,10 @@ summary_results <- simulation_results %>%
     avg_mu_hat = mean(mu_hat),
     avg_mu_hat_rejected = mean(mu_hat[p_value < alpha])
   )
+```
 
+
+```{r}
 # Plot power vs true mean
 ggplot(summary_results, aes(x = true_mu, y = power)) +
   geom_line() +
@@ -66,7 +69,13 @@ ggplot(summary_results, aes(x = true_mu, y = power)) +
        x = "True µ",
        y = "Power") +
   theme_minimal()
+```
 
+The power of the test is the probability of correctly rejecting the null hypothesis when there is a true effect. As the true mean μ increases, the power of the test also increases. This means that larger effect sizes lead to a higher probability of rejecting the null hypothesis, or detecting a true effect. This increase in power with effect size occurs because a larger true mean shifts the distribution of sample means further away from the hypothesized mean of zero. This makes it easier for the test to identify a significant difference, resulting in higher power.
+
+There is a positive association between effect size and power: as the true effect size increases, the power of the test also increases.
+
+```{r}
 #Plot avg estimate of mu hat
 ggplot(summary_results, aes(x = true_mu)) +
   geom_line(aes(y = avg_mu_hat), color = "blue") +
@@ -80,3 +89,15 @@ ggplot(summary_results, aes(x = true_mu)) +
   scale_color_manual(values = c("blue" = "Overall µ̂", "red" = "Rejected µ̂"))
 ```
 
+In the plot of all samples, the average estimate of μ across samples aligns closely with the true value of μ^, which is expected due to the properties of the sampling distribution. However, in the plot of samples where the null hypothesis was rejected, the average estimate of μ^ tends to be slightly higher than the true μ.
+
+Therefore the sample sample average of μ^ across tests for which the null is rejected is NOT approximately equal to the true value of μ. In cases where the null hypothesis is rejected, the estimated μ^ is more likely, on average, to be further from zero than those estimates that do not lead to rejection. This creates a selection bias where only larger observed effects pass the threshold for significance, resulting in a slight overestimation of μ in the subset where the null was rejected.
+
+# Problem 3
+```{r}
+homicide_data <- read_csv("data/homicide-data.csv")
+
+# Clean data
+
+
+```
