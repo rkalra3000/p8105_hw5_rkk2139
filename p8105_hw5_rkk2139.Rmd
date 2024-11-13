@@ -96,6 +96,11 @@ In the plot of all samples, the average estimate of μ across samples aligns clo
 
 Therefore the sample average of μ^ across tests for which the null is rejected is NOT approximately equal to the true value of μ. In cases where the null hypothesis is rejected, the estimated μ^ is more likely, on average, to be further from zero than those estimates that do not lead to rejection. This creates a selection bias where only larger observed effects pass the threshold for significance, resulting in a slight overestimation of μ in the subset where the null was rejected.
 
+MAKE PLOT
+
+Make a second plot (or overlay on the first) the average estimate of 𝜇̂ only in samples for which the null was rejected on the y axis and the true value of 𝜇 on the x axis. Is the sample average of 𝜇̂ across tests for which the null is rejected approximately equal to the true value of 𝜇? Why or why not?
+
+
 # Problem 3
 
 Description of raw data:
@@ -103,13 +108,21 @@ Description of raw data:
 The dataset contains information about homicides in large U.S. cities. Here are some key variables based on the visible columns in the screenshot:
 
 uid: Unique identifier for each homicide case.
+
 reported_date: Date the homicide was reported, in YYYYMMDD format.
+
 last_name and first_name: Name of the homicide victim.
+
 race: Victim's race.
+
 victim_age: Age of the victim.
+
 sex: Victim's sex.
+
 city and state: City and state where the homicide occurred.
+
 lat and lon: Latitude and longitude coordinates of the homicide location.
+
 disposition: Outcome of the case (e.g., “Closed by arrest”, “Closed without arrest”, “Open/No arrest”).
 
 ```{r city_state}
@@ -129,6 +142,10 @@ homicide_data <- homicide_data %>%
     last_name = str_to_title(last_name)
   )
 
+homicide_data <- homicide_data %>%
+  # Create city_state variable by combining city and state
+  mutate(city_state = str_c(city, ", ", state))
+  
 # Create variable (OH ?? Create separate variable summary, or just column in table? )
 city_summary <- homicide_data %>%
   # Create city_state variable by combining city and state
@@ -184,7 +201,7 @@ city_summary <- homicide_data %>%
   group_by(city_state) %>%
   summarize(
     total_homicides = n(),
-    unsolved_homicides = sum(disposition %in% c("Closed without arrest", "Open/No arrest"))
+    unsolved_homicides = sum(disposition %in% c("closed without arrest", "open/no arrest"))
   )
 
 # Apply prop.test to each city and extract proportion and CI
