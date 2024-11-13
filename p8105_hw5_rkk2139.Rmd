@@ -10,10 +10,13 @@ library(broom)
 library(dplyr)
 library(ggplot2)
 library(readr)
+library(stringr)
+library(purrr)
+library(tidyr)
 ```
 
 # Problem 2
-```{r}
+```{r run_simulation}
 # Set parameters
 n <- 30
 sigma <- 5
@@ -60,7 +63,7 @@ summary_results <- simulation_results %>%
 ```
 
 
-```{r}
+```{r plot_power_vs_true_mean}
 # Plot power vs true mean
 ggplot(summary_results, aes(x = true_mu, y = power)) +
   geom_line() +
@@ -75,7 +78,7 @@ The power of the test is the probability of correctly rejecting the null hypothe
 
 There is a positive association between effect size and power: as the true effect size increases, the power of the test also increases.
 
-```{r}
+```{r plot_avg_mu_hat}
 #Plot avg estimate of mu hat
 ggplot(summary_results, aes(x = true_mu)) +
   geom_line(aes(y = avg_mu_hat), color = "blue") +
@@ -91,13 +94,123 @@ ggplot(summary_results, aes(x = true_mu)) +
 
 In the plot of all samples, the average estimate of μ across samples aligns closely with the true value of μ^, which is expected due to the properties of the sampling distribution. However, in the plot of samples where the null hypothesis was rejected, the average estimate of μ^ tends to be slightly higher than the true μ.
 
-Therefore the sample sample average of μ^ across tests for which the null is rejected is NOT approximately equal to the true value of μ. In cases where the null hypothesis is rejected, the estimated μ^ is more likely, on average, to be further from zero than those estimates that do not lead to rejection. This creates a selection bias where only larger observed effects pass the threshold for significance, resulting in a slight overestimation of μ in the subset where the null was rejected.
+Therefore the sample average of μ^ across tests for which the null is rejected is NOT approximately equal to the true value of μ. In cases where the null hypothesis is rejected, the estimated μ^ is more likely, on average, to be further from zero than those estimates that do not lead to rejection. This creates a selection bias where only larger observed effects pass the threshold for significance, resulting in a slight overestimation of μ in the subset where the null was rejected.
 
 # Problem 3
-```{r}
+
+Description of raw data:
+
+The dataset contains information about homicides in large U.S. cities. Here are some key variables based on the visible columns in the screenshot:
+
+uid: Unique identifier for each homicide case.
+reported_date: Date the homicide was reported, in YYYYMMDD format.
+last_name and first_name: Name of the homicide victim.
+race: Victim's race.
+victim_age: Age of the victim.
+sex: Victim's sex.
+city and state: City and state where the homicide occurred.
+lat and lon: Latitude and longitude coordinates of the homicide location.
+disposition: Outcome of the case (e.g., “Closed by arrest”, “Closed without arrest”, “Open/No arrest”).
+
+```{r city_state}
 homicide_data <- read_csv("data/homicide-data.csv")
 
 # Clean data
+homicide_data <- homicide_data %>%
+  rename(
+    last_name = victim_last,
+    first_name = victim_first,
+    race = victim_race,
+    sex = victim_sex
+  ) %>%
+  
+  mutate(
+    first_name = str_to_title(first_name),
+    last_name = str_to_title(last_name)
+  )
 
+# Create variable (OH ?? Create separate variable summary, or just column in table? )
+city_summary <- homicide_data %>%
+  # Create city_state variable by combining city and state
+  mutate(city_state = str_c(city, ", ", state)) %>%
+  # Summarize data within each city_state
+  group_by(city_state) %>%
+  summarize(
+    total_homicides = n(),
+    unsolved_homicides = sum(disposition %in% c("Closed without arrest", "Open/No arrest"))
+  )
 
+# View the summarized data
+print(city_summary)
+```
+
+```{r proptest_Baltimore}
+
+# Filter for Baltimore and check unsolved cases directly in the original dataset
+baltimore_unsolved <- homicide_data %>%
+  filter(city == "Baltimore", state == "MD", disposition %in% c("Closed without arrest", "Open/No arrest"))
+
+# View the number of rows to see if there are any unsolved cases
+nrow(baltimore_unsolved)
+
+# Standardize disposition values to avoid case and whitespace issues
+homicide_data <- homicide_data %>%
+  mutate(
+    disposition = str_trim(str_to_lower(disposition))
+  )
+
+# Now filter for Baltimore again after cleaning
+baltimore_unsolved <- homicide_data %>%
+  filter(city == "Baltimore", state == "MD", disposition %in% c("closed without arrest", "open/no arrest"))
+
+nrow(baltimore_unsolved)  # Check the number of rows after cleaning
+# Calculate total homicides and unsolved homicides for Baltimore
+total_homicides_baltimore <- nrow(homicide_data %>% filter(city == "Baltimore", state == "MD"))
+unsolved_homicides_baltimore <- nrow(baltimore_unsolved)
+
+# Run prop.test if there are unsolved cases
+if (unsolved_homicides_baltimore > 0) {
+  baltimore_test <- prop.test(unsolved_homicides_baltimore, total_homicides_baltimore)
+  baltimore_result <- broom::tidy(baltimore_test) %>%
+    select(estimate, conf.low, conf.high)
+  print(baltimore_result)
+} else {
+  message("No unsolved homicides in Baltimore that match the criteria.")
+}
+```
+```{r proptest_allcities}
+# Group data by city_state and calculate total and unsolved homicides
+city_summary <- homicide_data %>%
+  group_by(city_state) %>%
+  summarize(
+    total_homicides = n(),
+    unsolved_homicides = sum(disposition %in% c("Closed without arrest", "Open/No arrest"))
+  )
+
+# Apply prop.test to each city and extract proportion and CI
+city_test_results <- city_summary %>%
+  mutate(
+    test = map2(unsolved_homicides, total_homicides, ~ prop.test(.x, .y)),
+    tidied_test = map(test, broom::tidy)
+  ) %>%
+  unnest(tidied_test) %>%
+  select(city_state, estimate, conf.low, conf.high)
+```
+
+```{r estimate_plot}
+# Arrange cities by the estimated proportion of unsolved homicides
+city_test_results <- city_test_results %>%
+  arrange(desc(estimate))
+
+# Plot
+ggplot(city_test_results, aes(x = reorder(city_state, estimate), y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+  labs(
+    title = "Proportion of Unsolved Homicides by City",
+    x = "City",
+    y = "Proportion of Unsolved Homicides"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 ```
